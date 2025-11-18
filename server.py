@@ -8,31 +8,33 @@ import re
 app = Flask(__name__)
 CORS(app)
 
-
 # ============================================================
-# 🔥 자연스러움 모델 : jhgan/ko-simcse-v4
+# 🔥 자연스러움 모델 (SimCSE 기반)
 # ============================================================
-FLU_MODEL_NAME = "jhgan/ko-simcse-v4"
+FLU_MODEL_NAME = "bm-k/KoSimCSE-roberta-multitask"
 
 flu_tokenizer = AutoTokenizer.from_pretrained(FLU_MODEL_NAME)
 flu_model = AutoModel.from_pretrained(FLU_MODEL_NAME)
 
-
 def analyze_fluency(sentence):
-    """문장 자연스러움 점수 (0~1 범위)"""
+    """
+    KoSimCSE 임베딩 기반 자연스러움 점수 (0~1).
+    너가 원하는 방식으로 스케일 조정 가능.
+    """
 
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
     with torch.no_grad():
         outputs = flu_model(**inputs)
 
-    # CLS embedding
+    # [CLS] 임베딩
     emb = outputs.last_hidden_state[:, 0, :]
+    norm = torch.norm(emb).item()
 
-    # 자연스러움 점수 (너가 기준 조정 가능)
-    score = torch.sigmoid(emb.norm() / 10).item()
+    # 자연스러움 점수 변환 (0~1)
+    score = float(torch.tanh(torch.tensor(norm / 8)))
     score = round(score, 4)
 
-    # 기본 라벨 기준 (원하면 조정 가능)
+    # 기본 별점 (너가 나중에 수정 가능)
     if score >= 0.75:
         label = "4 stars"
         comment = "문장이 매우 자연스럽습니다."
@@ -44,46 +46,43 @@ def analyze_fluency(sentence):
         comment = "조금 어색합니다."
     else:
         label = "1 star"
-        comment = "문장이 많이 부자연스럽습니다."
+        comment = "문장이 다소 부자연스럽습니다."
 
     return score, label, comment
 
 
 # ============================================================
-# 🔥 감정 분석 모델 : jason9693/ko-sentiment-roberta
+# 🔥 감정 분석 모델
 # ============================================================
-SENTI_MODEL_NAME = "jason9693/ko-sentiment-roberta"
+SENTI_MODEL_NAME = "brainbert/korean-sentiment-analysis"
 
 senti_tokenizer = AutoTokenizer.from_pretrained(SENTI_MODEL_NAME)
 senti_model = AutoModelForSequenceClassification.from_pretrained(SENTI_MODEL_NAME)
 
 SENTI_LABELS = ["부정", "중립", "긍정"]
 
-
 def analyze_sentiment(sentence):
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
     with torch.no_grad():
         outputs = senti_model(**inputs)
 
-    logits = outputs.logits
-    probs = torch.softmax(logits, dim=1)[0]
-
+    probs = F.softmax(outputs.logits, dim=1)[0]
     label_id = torch.argmax(probs).item()
-    score = probs[label_id].item()
+    score = float(probs[label_id])
 
     return SENTI_LABELS[label_id], round(score, 4)
 
 
 # ============================================================
-# 🔥 문장 분리기 (NLTK 없음)
+# 🔥 문장 분리기 (NLTK 대신)
 # ============================================================
 def split_sentences(text):
-    raw = re.split(r'(?<=[\.\?\!])\s+|\n+', text)
-    return [s.strip() for s in raw if s.strip()]
+    parts = re.split(r'(?<=[\.?!])\s+|\n+', text)
+    return [p.strip() for p in parts if p.strip()]
 
 
 # ============================================================
-# 🔥 전체 문장 분석
+# 🔥 전체 분석
 # ============================================================
 def analyze_text_all(text):
     sentences = split_sentences(text)
@@ -106,7 +105,7 @@ def analyze_text_all(text):
 
 
 # ============================================================
-# 🔥 API
+# 🔥 API 라우트
 # ============================================================
 @app.route("/feedback/bert", methods=["POST"])
 def bert_feedback():
@@ -122,11 +121,12 @@ def bert_feedback():
 
 @app.route("/")
 def home():
-    return "SimCSE + Korean Sentiment Server Running!"
+    return "KoSimCSE + Korean Sentiment Server Running!"
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
 
 
 
