@@ -10,34 +10,30 @@ CORS(app)
 # -----------------------------
 # MODEL 1: 자연스러움 평가
 # -----------------------------
-FLU_MODEL_NAME = "snunlp/KR-ELECTRA-discriminator"
+FLU_MODEL_NAME = "heegyu/korean-sentence-score"
 flu_tokenizer = AutoTokenizer.from_pretrained(FLU_MODEL_NAME)
 flu_model = AutoModelForSequenceClassification.from_pretrained(FLU_MODEL_NAME)
 
 def analyze_fluency(sentence):
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
     outputs = flu_model(**inputs)
-    score = torch.softmax(outputs.logits, dim=1)[0][1].item()
 
-    #새 별점 기준 (자기소개서 최적화)
-    if score >= 0.5:
-        label = "4"
-    elif score >= 0.3:
-        label = "3"
-    elif score >= 0.1:
-        label = "2"
-    else:
-        label = "1"
+    # 모델은 1~5점 회귀 형태로 출력됨 → 그대로 사용
+    score = outputs.logits.squeeze().item()
 
-    # 코멘트도 조정
-    if score >= 0.5:
-        comment = "문장이 자연스럽습니다."
-    elif score >= 0.3:
-        comment = "대체로 자연스럽지만 약간의 개선이 가능합니다."
-    elif score >= 0.1:
-        comment = "조금 부자연스럽습니다. 개선이 필요합니다."
+    # 1~5점 → 별 라벨 변환
+    if score >= 4.0:
+        label = "4 stars"
+        comment = "문장이 매우 자연스럽습니다."
+    elif score >= 3.0:
+        label = "3 stars"
+        comment = "대체로 자연스럽습니다."
+    elif score >= 2.0:
+        label = "2 stars"
+        comment = "조금 어색합니다. 개선해보세요."
     else:
-        comment = "문장이 부자연스럽습니다. 재작성하는 것이 좋습니다."
+        label = "1 star"
+        comment = "문장이 많이 부자연스럽습니다."
 
     return score, label, comment
 
