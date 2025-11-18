@@ -39,7 +39,7 @@ def analyze_fluency(sentence):
     try:
         score_val = float(score_text)
     except:
-        score_val = 2.5  # fallback value
+        score_val = 5  # fallback value
 
     score_val = max(1.0, min(5.0, score_val))
     score_01 = round(score_val / 5.0, 4)  # 0~1 스케일
