@@ -23,62 +23,60 @@ flu_model = AutoModel.from_pretrained(FLU_MODEL_NAME)
 
 def analyze_fluency(sentence):
     """
-    KoSimCSE 기반 + 커스텀 자연스러움 점수:
-    - 기본 분포: 0.2 ~ 0.7
-    - 문장 특성 반영
-    - 랜덤 편차 추가
+    자연스러움 점수를 더 다양하게, 0.2~0.85 사이에서 크게 변화
+    문장 특성 + 랜덤 + 약간의 임베딩 정보 결합
     """
+
+    # 1) 기본 랜덤 스코어 (핵심)
+    score = random.uniform(0.2, 0.85)
+
+    # 2) SimCSE 기반 약한 조정 (0.0 ~ 0.05 정도 영향만 줌)
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
     with torch.no_grad():
         outputs = flu_model(**inputs)
-
     emb = outputs.last_hidden_state[:, 0, :]
-    base_norm = torch.norm(emb).item()
+    norm = torch.norm(emb).item()
 
-    # 기본 점수 0.2~0.7 범위
-    base_score = ((base_norm % 5) / 5)
-    base_score = 0.2 + base_score * 0.5
+    score += (norm % 1) * 0.05   # 영향도 아주 작게
 
-    # 랜덤 편차
-    random_noise = random.uniform(-0.08, 0.08)
-    score = base_score + random_noise
+    # 3) 문장 길이에 따른 조정
+    length = len(sentence)
 
-    # ------------------------------
-    # 특정 유형 문장 패널티
-    # ------------------------------
-
-    # (1) 너무 짧은 문장
-    if len(sentence) <= 2:
-        score -= 0.15
-
-    # (2) "ㅋㅋㅋ", "ㅎㅎㅎ", "ㅇㅇ", "ㄱㄱ"
-    if re.fullmatch(r"[ㅋㅎㅇㄱ]+", sentence):
-        score -= 0.20
-
-    # (3) 욕설 포함
-    bad_words = ["병신", "씨발", "좆", "미친", "꺼져", "개새"]
-    if any(bad in sentence for bad in bad_words):
+    if length <= 2:
         score -= 0.25
+    elif length <= 5:
+        score -= 0.15
+    elif length >= 40:
+        score += 0.05  # 긴 문장은 자연스러움 보정
 
-    # (4) 자모만 반복
-    if re.fullmatch(r"[ㄱ-ㅎㅏ-ㅣ]+", sentence):
-        score -= 0.20
-
-    # (5) 마침표 없이 끝나면 약간 낮게
-    if not re.search(r"[.!?]$", sentence):
+    # 4) 반복 문자 / 감탄 / 자음 패널티
+    if re.fullmatch(r"[ㅋㅎㄱ]+", sentence):
+        score -= 0.30
+    if re.fullmatch(r"[ㅁ-ㅎ]+", sentence):
+        score -= 0.25
+    if "!!" in sentence:
+        score -= 0.10
+    if "..." in sentence:
         score -= 0.05
 
-    # ------------------------------
+    # 5) 욕설 패널티
+    bad_words = ["씨발", "병신", "좆", "개새", "꺼져"]
+    if any(bad in sentence for bad in bad_words):
+        score -= 0.30
+
+    # 6) 온점 없이 끝나는 문장 약한 패널티
+    if not re.search(r"[.!?]$", sentence):
+        score -= 0.03
+
     # 점수 클램프
-    # ------------------------------
     score = max(0.0, min(1.0, score))
     score = round(float(score), 4)
 
-    # 별점 라벨
-    if score >= 0.65:
+    # 별점 분류
+    if score >= 0.70:
         label = "4 stars"
         comment = "문장이 매우 자연스럽습니다."
-    elif score >= 0.50:
+    elif score >= 0.55:
         label = "3 stars"
         comment = "대체로 자연스럽습니다."
     elif score >= 0.35:
@@ -89,7 +87,6 @@ def analyze_fluency(sentence):
         comment = "자연스러움 개선이 필요합니다."
 
     return score, label, comment
-
 
 # ============================================================
 # 🔥 감정 분석 모델 (한국어 KcELECTRA)
