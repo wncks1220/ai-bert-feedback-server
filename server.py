@@ -73,13 +73,13 @@ def analyze_fluency(sentence):
     score = round(float(score), 4)
 
     # 별점 분류
-    if score >= 0.70:
+    if score >= 0.67:
         label = "4 stars"
         comment = "문장이 매우 자연스럽습니다."
-    elif score >= 0.55:
+    elif score >= 0.63:
         label = "3 stars"
         comment = "대체로 자연스럽습니다."
-    elif score >= 0.35:
+    elif score >= 0.60:
         label = "2 stars"
         comment = "약간 어색합니다."
     else:
