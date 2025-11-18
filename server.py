@@ -12,7 +12,7 @@ CORS(app)
 
 
 # ============================================================
-# 🔥 자연스러움 모델
+# 🔥 자연스러움 모델 (문장 유창성)
 # ============================================================
 FLU_MODEL_NAME = "heegyu/korean-sentence-similarity"
 flu_tokenizer = AutoTokenizer.from_pretrained(FLU_MODEL_NAME)
@@ -43,9 +43,9 @@ def analyze_fluency(sentence):
 
 
 # ============================================================
-# 🔥 감정 모델
+# 🔥 감정 모델 (확률 다양하게 나오는 진짜 감정모델)
 # ============================================================
-SENTI_MODEL_NAME = "brainbert/korean-sentiment-analysis"
+SENTI_MODEL_NAME = "jason9693/ko-sentiment-roberta"
 senti_tokenizer = AutoTokenizer.from_pretrained(SENTI_MODEL_NAME)
 senti_model = AutoModelForSequenceClassification.from_pretrained(SENTI_MODEL_NAME)
 
@@ -53,6 +53,7 @@ SENTI_LABELS = ["부정", "중립", "긍정"]
 
 
 def analyze_sentiment(sentence):
+    """감정 분석: 부정 / 중립 / 긍정 + 확률"""
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
     outputs = senti_model(**inputs)
 
@@ -64,12 +65,10 @@ def analyze_sentiment(sentence):
 
 
 # ============================================================
-# 🔥 NLTK 없이 문장 분리
+# 🔥 문장 분리 (NLTK 제거)
 # ============================================================
 def split_sentences(text):
-    # 한국어 문장 분리: . ? ! \n 기준
     raw = re.split(r'(?<=[\.\?\!])\s+|\n+', text)
-    # 빈 문자열 제거
     return [s.strip() for s in raw if s.strip()]
 
 
