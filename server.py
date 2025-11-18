@@ -19,17 +19,25 @@ def analyze_fluency(sentence):
     outputs = flu_model(**inputs)
     score = torch.softmax(outputs.logits, dim=1)[0][1].item()
 
-    label = (
-        "4 stars" if score > 0.8 else
-        "3 stars" if score > 0.6 else
-        "2 stars" if score > 0.4 else
-        "1 star"
-    )
+    #새 별점 기준 (자기소개서 최적화)
+    if score >= 0.5:
+        label = "4 stars"
+    elif score >= 0.3:
+        label = "3 stars"
+    elif score >= 0.1:
+        label = "2 stars"
+    else:
+        label = "1 star"
 
-    comment = (
-        "문장이 자연스럽습니다." if score > 0.7 else
-        "조금 부자연스럽습니다. 개선이 필요합니다."
-    )
+    # 코멘트도 조정
+    if score >= 0.5:
+        comment = "문장이 자연스럽습니다."
+    elif score >= 0.3:
+        comment = "대체로 자연스럽지만 약간의 개선이 가능합니다."
+    elif score >= 0.1:
+        comment = "조금 부자연스럽습니다. 개선이 필요합니다."
+    else:
+        comment = "문장이 부자연스럽습니다. 재작성하는 것이 좋습니다."
 
     return score, label, comment
 
