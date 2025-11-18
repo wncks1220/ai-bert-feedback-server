@@ -65,15 +65,28 @@ SENTI_LABELS = ["부정", "중립", "긍정"]
 
 def analyze_sentiment(sentence):
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
+    
     with torch.no_grad():
         outputs = senti_model(**inputs)
 
     probs = F.softmax(outputs.logits, dim=1)[0]
 
+    # 모델 라벨 개수
+    num_labels = probs.shape[0]
+
+    # 라벨 자동 매핑
+    if num_labels == 2:
+        labels = ["부정", "긍정"]
+    elif num_labels == 3:
+        labels = ["부정", "중립", "긍정"]
+    else:
+        labels = [f"라벨_{i}" for i in range(num_labels)]
+
     label_id = torch.argmax(probs).item()
     score = float(probs[label_id])
 
-    return SENTI_LABELS[label_id], round(score, 4)
+    return labels[label_id], round(score, 4)
+
 
 
 # ============================================================
