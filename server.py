@@ -8,7 +8,6 @@ import torch
 import nltk
 
 # NLTK 다운로드
-nltk.download("punkt")
 
 app = Flask(__name__)
 CORS(app)
