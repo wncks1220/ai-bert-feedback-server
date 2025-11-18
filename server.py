@@ -5,11 +5,8 @@ from transformers import (
     AutoModelForSequenceClassification
 )
 import torch
-import nltk
 
-# NLTK
-nltk.download("punkt")
-
+# Flask 기본 설정
 app = Flask(__name__)
 CORS(app)
 
@@ -20,14 +17,12 @@ FLU_MODEL_NAME = "snunlp/KR-ELECTRA-discriminator"
 flu_tokenizer = AutoTokenizer.from_pretrained(FLU_MODEL_NAME)
 flu_model = AutoModelForSequenceClassification.from_pretrained(FLU_MODEL_NAME)
 
-
 def analyze_fluency(sentence):
     """한국어 자연스러움 평가 (Acceptability Score)"""
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
     outputs = flu_model(**inputs)
-    score = torch.softmax(outputs.logits, dim=1)[0][1].item()  # 자연스러움 확률
-    
-    # 점수 → 라벨
+    score = torch.softmax(outputs.logits, dim=1)[0][1].item()
+
     label = (
         "4 stars" if score > 0.8 else
         "3 stars" if score > 0.6 else
@@ -50,7 +45,6 @@ SENTI_MODEL_NAME = "klue/roberta-base"
 senti_tokenizer = AutoTokenizer.from_pretrained(SENTI_MODEL_NAME)
 senti_model = AutoModelForSequenceClassification.from_pretrained(SENTI_MODEL_NAME)
 
-
 def analyze_sentiment(sentence):
     """한국어 감정/문장 분류"""
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
@@ -60,7 +54,6 @@ def analyze_sentiment(sentence):
     label_id = torch.argmax(probs).item()
     score = probs[label_id].item()
 
-    # KLUE 감정 라벨 (기본: 3개 또는 7개)
     klue_labels = {
         0: "중립",
         1: "부정",
@@ -73,28 +66,31 @@ def analyze_sentiment(sentence):
 
 
 # -----------------------------
-# 🔥 문장 분석 통합 함수
+# 🔥 문장 분석 통합 함수 (NLTK 제거)
 # -----------------------------
+def split_korean_sentences(text):
+    """NLTK 없이 한국어 문장 분리"""
+    # ?, !, . 을 모두 마침표 처리
+    tmp = text.replace("?", ".").replace("!", ".")
+    sentences = [s.strip() for s in tmp.split(".") if s.strip()]
+    return sentences
+
+
 def analyze_text_all(text):
-    sentences = nltk.sent_tokenize(text)
+    sentences = split_korean_sentences(text)
     results = []
 
     for s in sentences:
-        # 자연스러움 평가
         flu_score, flu_label, flu_comment = analyze_fluency(s)
-
-        # 감정/문장 분류
         senti_label, senti_score = analyze_sentiment(s)
 
         results.append({
             "sentence": s,
 
-            # 자연스러움
             "fluency_score": round(flu_score, 4),
             "fluency_label": flu_label,
             "fluency_comment": flu_comment,
 
-            # 감정/문장 분류
             "senti_label": senti_label,
             "senti_score": round(senti_score, 4)
         })
@@ -109,10 +105,10 @@ def analyze_text_all(text):
 def bert_feedback():
     data = request.get_json()
     essay = data.get("essay", "").strip()
-    
+
     if not essay:
         return jsonify({"error": "내용이 비어 있습니다."}), 400
-    
+
     feedback = analyze_text_all(essay)
     return jsonify({"feedback": feedback})
 
@@ -124,5 +120,6 @@ def home():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
 
 
