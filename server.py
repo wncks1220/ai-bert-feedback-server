@@ -8,7 +8,6 @@ nltk.download("punkt_tab")
 
 app = Flask(__name__)
 
-analyzer = pipeline("text-classification", model="textattack/roberta-base-CoLA")
 
 @app.route("/analyze", methods=["POST"])
 def analyze_text():
