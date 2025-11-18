@@ -64,16 +64,16 @@ senti_model = AutoModelForSequenceClassification.from_pretrained(SENTI_MODEL_NAM
 
 def analyze_sentiment(sentence):
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
-    
+
     with torch.no_grad():
         outputs = senti_model(**inputs)
 
-    probs = F.softmax(outputs.logits, dim=1)[0]
+    logits = outputs.logits
+    probs = F.softmax(logits, dim=1)[0]
 
-    # 모델 라벨 개수
     num_labels = probs.shape[0]
 
-    # 라벨 자동 매핑
+    # 라벨 자동 생성 (모델이 보내주는 logits 개수에 맞춤)
     if num_labels == 2:
         labels = ["부정", "긍정"]
     elif num_labels == 3:
@@ -81,9 +81,12 @@ def analyze_sentiment(sentence):
     else:
         labels = [f"라벨_{i}" for i in range(num_labels)]
 
+    # argmax가 num_labels보다 클 때 보정
     label_id = torch.argmax(probs).item()
-    score = float(probs[label_id])
+    if label_id >= num_labels:
+        label_id = num_labels - 1
 
+    score = float(probs[label_id])
     return labels[label_id], round(score, 4)
 
 
