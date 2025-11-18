@@ -13,55 +13,54 @@ app = Flask(__name__)
 CORS(app)
 
 # ============================================================
-# 🔥 1) 자연스러움 모델 (paust/pko-t5-base-fluency)
+# 🔥 자연스러움(유창성) 모델 — heegyu/KLUE-FLUENCY-v1
 # ============================================================
-FLU_MODEL_NAME = "paust/pko-t5-base-fluency"
+FLU_MODEL_NAME = "heegyu/KLUE-FLUENCY-v1"
 
 flu_tokenizer = AutoTokenizer.from_pretrained(FLU_MODEL_NAME)
 flu_model = AutoModelForSeq2SeqLM.from_pretrained(FLU_MODEL_NAME)
 
 
 def analyze_fluency(sentence):
-    """
-    한국어 자연스러움 점수 (1~5점)
-    모델이 직접 점수를 생성함.
-    """
+    """KLUE Fluency 모델: 자연스러움을 0~5 점수로 출력"""
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
 
     with torch.no_grad():
-        output = flu_model.generate(
+        output_ids = flu_model.generate(
             **inputs,
-            max_length=4,
+            max_length=4
         )
 
-    score_text = flu_tokenizer.decode(output[0], skip_special_tokens=True)
+    # 출력 예: "2.7" 또는 "4.3"
+    score_text = flu_tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
     try:
-        score_val = float(score_text)
+        raw_score = float(score_text)
     except:
-        score_val = 5  # fallback value
+        raw_score = 2.5   # fallback
 
-    score_val = max(1.0, min(5.0, score_val))
-    score_01 = round(score_val / 5.0, 4)  # 0~1 스케일
+    # 0~1 스케일
+    score01 = max(0.0, min(1.0, raw_score / 5.0))
 
-    if score_val >= 4.0:
+    # 별점 라벨링 (원하면 조절 가능)
+    if raw_score >= 4.0:
         label = "4 stars"
         comment = "문장이 매우 자연스럽습니다."
-    elif score_val >= 3.0:
+    elif raw_score >= 3.0:
         label = "3 stars"
         comment = "대체로 자연스럽습니다."
-    elif score_val >= 2.0:
+    elif raw_score >= 2.0:
         label = "2 stars"
         comment = "조금 어색합니다."
     else:
         label = "1 star"
         comment = "다소 부자연스럽습니다."
 
-    return score_01, label, comment
+    return round(score01, 4), label, comment
 
 
 # ============================================================
-# 🔥 2) 감정 분석 모델 (한국어 Electra)
+# 🔥 감정 분석 모델 — nlp04/korean_sentiment_analysis_kcelectra
 # ============================================================
 SENTI_MODEL_NAME = "nlp04/korean_sentiment_analysis_kcelectra"
 
@@ -76,19 +75,11 @@ def analyze_sentiment(sentence):
         outputs = senti_model(**inputs)
 
     probs = F.softmax(outputs.logits, dim=1)[0]
-    num_labels = probs.shape[0]
 
-    if num_labels == 2:
-        labels = ["부정", "긍정"]
-    elif num_labels == 3:
-        labels = ["부정", "중립", "긍정"]
-    else:
-        labels = [f"라벨_{i}" for i in range(num_labels)]
-
+    labels = ["부정", "중립", "긍정"]
     label_id = torch.argmax(probs).item()
-    score = float(probs[label_id])
 
-    return labels[label_id], round(score, 4)
+    return labels[label_id], float(probs[label_id])
 
 
 # ============================================================
@@ -100,7 +91,7 @@ def split_sentences(text):
 
 
 # ============================================================
-# 🔥 전체 문장 분석
+# 🔥 전체 분석
 # ============================================================
 def analyze_text_all(text):
     sentences = split_sentences(text)
@@ -116,14 +107,14 @@ def analyze_text_all(text):
             "fluency_label": flu_label,
             "fluency_comment": flu_comment,
             "senti_label": senti_label,
-            "senti_score": senti_score
+            "senti_score": round(senti_score, 4)
         })
 
     return results
 
 
 # ============================================================
-# 🔥 API 엔드포인트
+# 🔥 API
 # ============================================================
 @app.route("/feedback/bert", methods=["POST"])
 def bert_feedback():
@@ -138,7 +129,7 @@ def bert_feedback():
 
 @app.route("/")
 def home():
-    return "T5 Fluency + Korean Electra Sentiment Server Running!"
+    return "KLUE-FLUENCY + KcELECTRA Sentiment Server Running!"
 
 
 if __name__ == "__main__":
