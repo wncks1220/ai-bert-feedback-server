@@ -61,7 +61,6 @@ senti_model = AutoModelForSequenceClassification.from_pretrained(SENTI_MODEL_NAM
 
 # 해당 모델은 3개 라벨 사용
 # 0 = 부정, 1 = 중립, 2 = 긍정
-SENTI_LABELS = ["부정", "중립", "긍정"]
 
 def analyze_sentiment(sentence):
     inputs = senti_tokenizer(sentence, return_tensors="pt", truncation=True)
