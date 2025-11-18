@@ -21,13 +21,13 @@ def analyze_fluency(sentence):
 
     #새 별점 기준 (자기소개서 최적화)
     if score >= 0.5:
-        label = "4 stars"
+        label = "4"
     elif score >= 0.3:
-        label = "3 stars"
+        label = "3"
     elif score >= 0.1:
-        label = "2 stars"
+        label = "2"
     else:
-        label = "1 star"
+        label = "1"
 
     # 코멘트도 조정
     if score >= 0.5:
