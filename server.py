@@ -19,7 +19,7 @@ flu_model = AutoModel.from_pretrained(FLU_MODEL_NAME)
 def analyze_fluency(sentence):
     """
     KoSimCSE 임베딩 기반 자연스러움 점수 (0~1).
-    너가 원하는 방식으로 스케일 조정 가능.
+    원하는 방식으로 스케일 조정 가능.
     """
 
     inputs = flu_tokenizer(sentence, return_tensors="pt", truncation=True)
